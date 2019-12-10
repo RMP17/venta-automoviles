@@ -5,7 +5,7 @@
                 <v-btn color="primary" block dark v-on="on">Nueva publicación</v-btn>
             </template>
             <v-card>
-                <div v-show="!openCamera">
+                <div>
                     <v-card-title>
                         <span class="headline">Públicar</span>
                     </v-card-title>
@@ -34,15 +34,16 @@
                                       outline
                                       label="Moneda"
                             ></v-select>
-                            <v-text-field
+                            <v-textarea
                                     outline
                                     v-model="publicacion.descripcion"
                                     label="Descripción"
-                            ></v-text-field>
+                            ></v-textarea>
                             <v-text-field
-                                    label="Seleccione o capture una imagen"
+                                    placeholder="Seleccione o capture una imagen"
                                     @click='pickFile'
                                     v-model='imageName'
+                                    single-line
                                     outline
                                     readonly
                             ></v-text-field>
@@ -55,11 +56,23 @@
                             >
                             <!--<img :src="imageUrl" height="150"/>-->
                         </v-form>
+                        <span>Posición actual</span>
+                        <br>
+                        <span>Latitud: {{publicacion.latitude}}</span>
+                        <br>
+                        <span>Longitud: {{publicacion.longitude}}</span>
+                        <google-map
+                                :center="center"
+                                :zoom="13"
+                                @click="mapRclicked"
+                                style="width: 100%; height: 25rem">
+                            <google-marker v-for="m in markers" :position="m.position" :clickable="true" :draggable="true" @click="center=m.position"></google-marker>
+                        </google-map>
                     </v-card-text>
                     <v-card-actions>
                         <v-spacer></v-spacer>
                         <v-btn flat @click="dialog = false">Close</v-btn>
-                        <v-btn color="primary" >Save</v-btn>
+                        <v-btn color="primary" @click="addPublicacion">Save</v-btn>
                     </v-card-actions>
                 </div>
                 <!--<div > Todo: este codigo es para el uso de la camra en tiempo real o en la propia pagina
@@ -93,21 +106,28 @@
 
 <script>
     // import axios from 'axios';
-    import Publicacion from '../models/Publicacion';
+    // import Publicacion from '../models/Publicacion';
+    import Publicacion from '@/models/Publicacion';
+    import {mapState} from 'vuex';
+    import * as faker from 'faker';
+    import {db} from '@/main';
+    import firebase from 'firebase';
     import {
         VCard,
         VTextField,
+        VTextarea,
         VLayout,
         VDialog,
         VForm,
         VCardTitle,
         VCardText,
-        VCardActions
+        VCardActions,
     } from 'vuetify/lib';
-    import Camera from '../models/Camera';
+    // import Camera from '../models/Camera';
 
     export default {
         components:{
+            VTextarea,
             VCard,
             VTextField,
             VLayout,
@@ -115,16 +135,26 @@
             VForm,
             VCardTitle,
             VCardText,
-            VCardActions
+            VCardActions,
         },
         data: () => ({
+            snackbar: false,
+            color: '',
+            mode: '',
+            timeout: 6000,
+            text: 'Hello, I\'m a snackbar',
+            // lastId:1,
+            center: {
+                lat: -19.0349,
+                lng: -65.2558336
+            },
+            markers: [],
             // view
             imageName: '',
             // imageUrl: '',
             imageFile: '',
             valid: false,
             dialog: false,
-            openCamera:false,
             rules: {
                 tipos_accesorios: [
                     v => !!v || 'Accesorio es requerido',
@@ -139,12 +169,62 @@
             publicacion : new Publicacion(),
         }),
         mounted(){
+            this.currentLocationUser();
         },
         computed:{
-
+            ...mapState(['user'])
         },
         methods:{
+            mapRclicked(mouseArgs) {
+                const createdMarker = this.addMarker();
+                this.publicacion.latitude=createdMarker.position.lat = mouseArgs.latLng.lat();
+                this.publicacion.longitude=createdMarker.position.lng = mouseArgs.latLng.lng();
 
+            },
+            currentLocationUser(){
+                let options = {
+                    enableHighAccuracy: true,
+                    timeout: 5000,
+                    maximumAge: 0
+                };
+
+                const success = (pos) => {
+                    let crd = pos.coords;
+                    const createdMarker = this.addMarker();
+                    this.publicacion.latitude = createdMarker.position.lat = crd.latitude;
+                    this.publicacion.longitude = createdMarker.position.lng = crd.longitude;
+                    console.log('Your current position is:');
+                    console.log('Latitude : ' + crd.latitude);
+                    console.log('Longitude: ' + crd.longitude);
+                    console.log('More or less ' + crd.accuracy + ' meters.');
+                };
+
+                function error(err) {
+                    console.warn('ERROR(' + err.code + '): ' + err.message);
+                };
+
+                navigator.geolocation.getCurrentPosition(success, error, options);
+            },
+            addMarker() {
+                // this.lastId++;
+                this.markers=[];
+                this.markers.push({
+                    // id: this.lastId,
+                    position: {
+                        lat: 48.8538302,
+                        lng: 2.2982161
+                    },
+                    opacity: 1,
+                    draggable: true,
+                    enabled: true,
+                    clicked: 0,
+                    rightClicked: 0,
+                    dragended: 0,
+                    ifw: true,
+                    ifw2text: 'This text is bad please change me :( '
+                });
+                return this.markers[this.markers.length - 1];
+            },
             pickFile () {
                 this.$refs.inputImage.click();
             },
@@ -166,22 +246,32 @@
                     this.imageFile = '';
                     // this.imageUrl = '';
                 }
-            }
-            /*submit:function () {
-                if (this.$refs.formAccesorio.validate()) {
-                    axios.post(this.$urlApi.resourcesAccesorio,
-                        this.accesorio
-                    ).then( response => {
-                        this.accesorio = new Accesorio();
-                        this.accesorio.equipo_id = this.idEquipo;
-                        this.$toastr('success', '','TAREA REALIZADA CON ÉXITO');
-                        this.valid=true;
-                        this.getAccesoriosEquiposById(this.idEquipo);
-                    }).catch( errors => {
-                        this.$notifyErrors(errors);
-                    });
+            },
+            addPublicacion(){
+
+                if (this.$refs.form.validate()) {
+                    // this.publicacion.id= faker.random.alphaNumeric(16);
+                    this.publicacion.uid= this.user.uid;
+                    const publicacion=Object.assign({},this.publicacion );
+                    /*delete publicacion.id;
+                    console.log(publicacion);*/
+                    db.collection('publicaciones').add(publicacion
+                    ).then(response=>{
+                        this.addFile(response.id);
+                        console.log(response);
+                    })
                 }
             },
+            addFile(idPublicacion){
+                this.snackbar=true;
+                if(this.$refs.inputImage.files[0]){
+                    const storageRef= firebase.storage().ref();
+                    const idFile= faker.random.alphaNumeric(16);
+                    console.log(this.$refs.inputImage.files);
+                    const uploadFile=storageRef.child('publicaciones/'+idPublicacion+'/'+Date.now()).put(this.$refs.inputImage.files[0]);
+                }
+            },
+            /*
             openDialog() {
                 this.accesorio.equipo_id=this.idEquipo;
                 this.getAccesoriosEquiposById(this.idEquipo);

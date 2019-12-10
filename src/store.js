@@ -7,11 +7,15 @@ Vue.use(Vuex)
 
 export default new Vuex.Store({
   state: {
-    fullNameUser:null
+    fullNameUser:null,
+    user:null,
   },
   mutations: {
     toAssignFullName(state, name){
       state.fullNameUser=name;
+    },
+    toAssignUser(state, user){
+      state.user=user;
     }
   },
   actions: {
@@ -19,10 +23,17 @@ export default new Vuex.Store({
       const provider= new firebase.auth.GoogleAuthProvider();
       firebase.auth().signInWithPopup(provider
       ).then(response=>{
-        const currentUser = response.user;
-        let name=currentUser.providerData[0].displayName;
-        if(!name) name=currentUser.providerData[0].email;
-        commit('toAssignFullName', name);
+        const currentUser = {
+          uid:response.user.uid,
+          name:response.user.providerData[0].displayName,
+          email:response.user.providerData[0].email,
+        } ;
+        if(!currentUser.name){
+          commit('toAssignFullName', currentUser.email);
+        } else {
+          commit('toAssignFullName', currentUser.name);
+        }
+        commit('toAssignUser', currentUser);
         router.replace('home');
       }, err=>{
         alert('No hay ningún registro de usuario correspondiente a e-mail. El usuario puede haber sido eliminado.');
@@ -31,11 +42,17 @@ export default new Vuex.Store({
     signUp: function ({commit},credentials) {
       firebase.auth().createUserWithEmailAndPassword(credentials[0], credentials[1]
       ).then(response => {
-        console.log(response);
-        const currentUser = response.user;
-        let name=currentUser.providerData[0].displayName;
-        if(!name) name=currentUser.providerData[0].email;
-        commit('toAssignFullName', name);
+        const currentUser = {
+          uid:response.user.uid,
+          name:response.user.providerData[0].displayName,
+          email:response.user.providerData[0].email,
+        } ;
+        if(!currentUser.name){
+          commit('toAssignFullName', currentUser.email);
+        } else {
+          commit('toAssignFullName', currentUser.name);
+        }
+        commit('toAssignUser', currentUser);
         router.replace('home');
       }, err => {
         alert('La dirección de correo electrónico ya está en uso por otra cuenta.');
@@ -44,10 +61,17 @@ export default new Vuex.Store({
     auth: function ({commit}, credentials) {
       firebase.auth().signInWithEmailAndPassword(credentials[0], credentials[1]
       ).then(response=>{
-        const currentUser = response.user;
-        let name=currentUser.providerData[0].displayName;
-        if(!name) name=currentUser.providerData[0].email;
-        commit('toAssignFullName', name);
+        const currentUser = {
+          uid:response.user.uid,
+          name:response.user.providerData[0].displayName,
+          email:response.user.providerData[0].email,
+        } ;
+        if(!currentUser.name){
+          commit('toAssignFullName', currentUser.email);
+        } else {
+          commit('toAssignFullName', currentUser.name);
+        }
+        commit('toAssignUser', currentUser);
         router.replace('home');
       }, err=>{
         alert('No hay ningún registro de usuario correspondiente a e-mail. El usuario puede haber sido eliminado.');
@@ -57,14 +81,23 @@ export default new Vuex.Store({
       firebase.auth().signOut().then(() => {
         router.replace('login');
         commit('toAssignFullName', null);
+        commit('toAssignUser', null);
       })
     },
     loggedIn({commit}){
-      const currentUser = firebase.auth().currentUser;
-      if(currentUser) {
-        let name=currentUser.providerData[0].displayName;
-        if(!name) name=currentUser.providerData[0].email;
-        commit('toAssignFullName', name);
+      const _currentUser = firebase.auth().currentUser;
+      if(_currentUser) {
+        const currentUser = {
+          uid:_currentUser.uid,
+          name:_currentUser.providerData[0].displayName,
+          email:_currentUser.providerData[0].email,
+        } ;
+        if(!currentUser.name){
+          commit('toAssignFullName', currentUser.email);
+        } else {
+          commit('toAssignFullName', currentUser.name);
+        }
+        commit('toAssignUser', currentUser);
       } else {
         commit('toAssignFullName', null);
       }

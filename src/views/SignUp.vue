@@ -3,6 +3,16 @@
     <v-flex md4  offset-md4 >
       <div class="title">Nueva Cuenta de Usuario</div>
       <v-text-field
+              label="Nombre completo"
+              v-model="name"
+              required
+      ></v-text-field>
+      <v-text-field
+              label="Número de celular o teléfono"
+              v-model="phone"
+              required
+      ></v-text-field>
+      <v-text-field
               label="E-mail"
               v-model="email"
               required
@@ -39,6 +49,8 @@
       return {
         show1: false,
         password: null,
+        name:null,
+        phone:null,
         email:null,
         rules: {
           required: value => !!value || 'Required.',
